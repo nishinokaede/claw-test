@@ -20,4 +20,4 @@ jobs:
 
     - name: Deploy to server
       run: |
-        scp -r * user@your-server-ip:/path/to/deploy
+        scp -r * root@122.51.223.247:/var/www/html
