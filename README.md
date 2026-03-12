@@ -1,1 +1,1 @@
-Initial commit
+This is a sample project
