@@ -42,7 +42,6 @@ jobs:
       working-directory: frontend
       env:
         NODE_ENV: development
-        npm_config_production: "false"
         NPM_CONFIG_OMIT: ""
       run: |
         set -euxo pipefail
@@ -53,10 +52,29 @@ jobs:
         npm config get production || true
         npm config get omit || true
         unset npm_config_omit NPM_CONFIG_OMIT
-        npm ci --no-audit --no-fund
+        npm ci --no-audit --no-fund || (
+          echo "npm ci failed"
+          ls -la
+          if [[ -d /home/runner/.npm/_logs ]]; then
+            latest_log="$(ls -t /home/runner/.npm/_logs/*debug-0.log 2>/dev/null | head -n 1 || true)"
+            if [[ -n "$latest_log" ]]; then
+              echo "Latest npm debug log: $latest_log"
+              tail -n 200 "$latest_log" || true
+            fi
+          fi
+          exit 1
+        )
+        test -x ./node_modules/.bin/eslint
         ./node_modules/.bin/eslint --version
         npm run lint
         npm run build
+
+    - name: Upload npm logs (on failure)
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: npm-logs
+        path: /home/runner/.npm/_logs/*.log
 
     - name: Configure SSH
       shell: bash
