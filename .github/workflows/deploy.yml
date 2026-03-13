@@ -43,6 +43,7 @@ jobs:
       env:
         NODE_ENV: development
         npm_config_production: "false"
+        NPM_CONFIG_OMIT: ""
       run: |
         set -euxo pipefail
         command -v node
@@ -51,8 +52,9 @@ jobs:
         npm --version
         npm config get production || true
         npm config get omit || true
-        npm ci --include=dev --no-audit --no-fund
-        npx --no-install eslint --version
+        unset npm_config_omit NPM_CONFIG_OMIT
+        npm ci --no-audit --no-fund
+        ./node_modules/.bin/eslint --version
         npm run lint
         npm run build
 
