@@ -8,18 +8,64 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up SSH
-      uses: webfactory/ssh-agent@v0.8.0
+    - name: Set up Python
+      uses: actions/setup-python@v5
       with:
-        ssh-private-key: \${{ secrets.SSH_PRIVATE_KEY }}
+        python-version: "3.11"
+
+    - name: Validate backend
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r backend/requirements.txt
+        python -m compileall backend
+
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+        cache: "npm"
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Validate frontend
+      shell: bash
+      working-directory: frontend
+      run: |
+        npm ci
+        npm run lint
+        npm run build
+
+    - name: Configure SSH
+      shell: bash
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        SSH_HOST: 122.51.223.247
+        SSH_USER: root
+      run: |
+        set -euo pipefail
+        mkdir -p ~/.ssh
+        printf '%b' "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+
+        first_line="$(head -n 1 ~/.ssh/id_rsa || true)"
+        if [[ "$first_line" == PuTTY-User-Key-File* ]]; then
+          echo "SSH_PRIVATE_KEY 看起来是 PuTTY .ppk 格式，请转换为 OpenSSH 私钥后再放到 GitHub Secrets。"
+          exit 1
+        fi
+
+        eval "$(ssh-agent -s)"
+        ssh-add ~/.ssh/id_rsa
+        ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
 
     - name: Deploy to server
+      shell: bash
+      env:
+        SSH_HOST: 122.51.223.247
+        SSH_USER: root
       run: |
-        scp -r * root@122.51.223.247:/var/www/html
+        ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" "cd /root/jwt-auth-project && ./deploy.sh"

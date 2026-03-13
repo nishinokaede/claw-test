@@ -20,7 +20,8 @@ cd "$PROJECT_DIR"
 
 # 1. 拉取最新代码
 echo "📥 拉取最新代码..."
-git pull origin master
+DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
+git pull origin "$DEPLOY_BRANCH"
 echo "✅ 代码拉取完成"
 echo ""
 
