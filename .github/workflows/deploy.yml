@@ -8,6 +8,8 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
     - name: Checkout code
@@ -21,6 +23,9 @@ jobs:
     - name: Validate backend
       shell: bash
       run: |
+        set -euxo pipefail
+        command -v python
+        python --version
         python -m pip install --upgrade pip
         python -m pip install -r backend/requirements.txt
         python -m compileall backend
@@ -35,8 +40,19 @@ jobs:
     - name: Validate frontend
       shell: bash
       working-directory: frontend
+      env:
+        NODE_ENV: development
+        npm_config_production: "false"
       run: |
-        npm ci
+        set -euxo pipefail
+        command -v node
+        node --version
+        command -v npm
+        npm --version
+        npm config get production || true
+        npm config get omit || true
+        npm ci --include=dev --no-audit --no-fund
+        npx --no-install eslint --version
         npm run lint
         npm run build
 
@@ -68,4 +84,12 @@ jobs:
         SSH_HOST: 122.51.223.247
         SSH_USER: root
       run: |
-        ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" "cd /root/jwt-auth-project && ./deploy.sh"
+        set -euxo pipefail
+        ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" '
+          set -euxo pipefail
+          cd /root/jwt-auth-project
+          if ! command -v bash >/dev/null 2>&1; then echo "bash not found" ; exit 127 ; fi
+          if ! command -v python3 >/dev/null 2>&1 && ! command -v python >/dev/null 2>&1; then echo "python not found" ; exit 127 ; fi
+          if ! command -v npm >/dev/null 2>&1; then echo "npm not found" ; exit 127 ; fi
+          ./deploy.sh
+        '
