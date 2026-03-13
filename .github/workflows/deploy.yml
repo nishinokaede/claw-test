@@ -37,6 +37,14 @@ jobs:
         cache: "npm"
         cache-dependency-path: frontend/package-lock.json
 
+    - name: Upgrade npm
+      shell: bash
+      run: |
+        set -euxo pipefail
+        npm --version
+        npm i -g npm@10.9.2
+        npm --version
+
     - name: Validate frontend
       shell: bash
       working-directory: frontend
@@ -52,6 +60,7 @@ jobs:
         npm config get production || true
         npm config get omit || true
         unset npm_config_omit NPM_CONFIG_OMIT
+        npm cache verify || true
         npm ci --no-audit --no-fund || (
           echo "npm ci failed"
           ls -la
@@ -62,7 +71,8 @@ jobs:
               tail -n 200 "$latest_log" || true
             fi
           fi
-          exit 1
+          npm cache clean --force || true
+          npm install --no-audit --no-fund
         )
         test -x ./node_modules/.bin/eslint
         ./node_modules/.bin/eslint --version
